@@ -85,7 +85,7 @@ func magicInflateRow(dm, bg image.Image, config Config, y int) imageRow {
 	row := imageRow{}
 	row.colors = make([]color.Color, dmWidth)
 	for x := 0; x < dmWidth; x++ {
-		bgX := bgIndexes[x] // Mod function.
+		bgX := bgIndexes[x] // TODO(cartland): Check index bounds.
 		row.colors[x] = bg.At(bgX, bgY)
 	}
 	return row
