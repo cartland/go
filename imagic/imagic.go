@@ -104,10 +104,10 @@ var depthMax = uint32(3000)
 func depthAt(dm image.Image, x, y int) uint32 {
 	color := dm.At(x, y)
 	r, g, b, a := color.RGBA()
-	rgb := (r + g + b)       // 3 * 0xFFFF
-	rgb = rgb / 3            // 0xFFFF
-	rgba := rgb * a / 0xFFFF // 0xFFFF
-	depth := rgba * depthMax / 0xFFFF
+	rgb := (r + g + b)                // [0, 3 * 0xFFFF]
+	rgb = rgb / 3                     // [0, 0xFFFF]
+	rgba := rgb * a / 0xFFFF          // [0, 0xFFFF]
+	depth := rgba * depthMax / 0xFFFF // [0, depthMax]
 	return depth
 }
 
