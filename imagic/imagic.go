@@ -26,7 +26,7 @@ type Config struct {
 }
 
 /**
- * Give a depth map and background image, create an autostereogram.
+ * Given a depth map and background image, create an autostereogram.
  */
 func Imagic(dm, bg image.Image, config Config) image.Image {
 	bounds := dm.Bounds()
@@ -71,9 +71,10 @@ func magicInflateRow(dm, bg image.Image, config Config, y int) imageRow {
 	var usedBgIndexes = make([]bool, dmWidth)
 	for x := initialWidth; x < len(bgIndexes); x++ {
 		if si := sourceIndexes[x]; si < 0 {
-			// If the source has value, just use the next bg pixel.
+			// If the source index is negative, just use the next bg pixel.
 			bgIndexes[x] = bgIndexes[x-1] + 1
 		} else if usedBgIndexes[si] {
+			// This removes some phantom artifacts for wall-eyed viewing.
 			bgIndexes[x] = bgIndexes[x-1] + 1
 		} else {
 			bgIndexes[x] = bgIndexes[si]
