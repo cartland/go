@@ -1,3 +1,3 @@
-hello-go
+go
 ========
-Playing with Golang.
+Go Code by Chris Cartland.
