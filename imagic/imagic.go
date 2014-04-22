@@ -60,11 +60,12 @@ func magicInflateRow(dm, bg image.Image, config Config, y int) imageRow {
 	initialWidth := 0
 	for ; sourceIndexes[initialWidth] < 0; initialWidth++ {
 	}
+	bgIndexStep := bgWidth / initialWidth
 
 	// Map background onto the first section on left.
 	var bgIndexes = make([]int, dmWidth)
 	for x := 0; x < initialWidth; x++ {
-		bgIndexes[x] = x * bgWidth / initialWidth
+		bgIndexes[x] = x * bgIndexStep
 	}
 
 	// For the rest, copy pixel index from left to right.
@@ -73,9 +74,14 @@ func magicInflateRow(dm, bg image.Image, config Config, y int) imageRow {
 		if si := sourceIndexes[x]; si < 0 {
 			// If the source index is negative, just use the next bg pixel.
 			bgIndexes[x] = bgIndexes[x-1] + 1
-		} else if usedBgIndexes[si] {
+		} else if usedBgIndexes[si] && !config.CrossEyed {
 			// This removes some phantom artifacts for wall-eyed viewing.
-			bgIndexes[x] = bgIndexes[x-1] + 1
+			// Previous pixels that have been used for the left eye previously
+			// should not be used again here. That would make this right
+			// eye and the previous right eye compete for the same left pixel.
+			// This means the brain can interpret two different depths,
+			// depending on which pixel the right eye chooses.
+			bgIndexes[x] = bgIndexes[x-1] + 1 // bgIndexStep
 		} else {
 			bgIndexes[x] = bgIndexes[si]
 			usedBgIndexes[si] = true
