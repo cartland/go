@@ -17,6 +17,7 @@ package main
 
 import (
 	"github.com/cartland/go/imagic"
+	flags "github.com/jessevdk/go-flags"
 	"image"
 	"log"
 	"os"
@@ -25,9 +26,24 @@ import (
 	"image/png"
 )
 
+var opts struct {
+	DepthMapFile   string `short:"d" long:"depth" default:"borrodepth.png" description:"depth:depth map image"`
+	BackgroundFile string `short:"b" long:"background" default:"Chefchaouen.jpg" description:"depth:background image texture"`
+	CrossEyed      bool   `short:"c" long:"crosseyed" default:"false" description:"crosseyed:create image designed for cross-eyed viewing"`
+	OutputFile     string `short:"o" long:"output" default:"output.png" description:"output:output file name"`
+}
+
 func main() {
-	// Decode the JPEG data.
-	reader, err := os.Open("testdata/Chefchaouen.jpg")
+	_, err := flags.Parse(&opts)
+	if err != nil {
+		if e, ok := err.(*flags.Error); ok {
+			if e.Type == flags.ErrHelp {
+				os.Exit(0)
+			}
+		}
+		os.Exit(1)
+	}
+	reader, err := os.Open(opts.BackgroundFile)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -37,7 +53,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	reader, err = os.Open("testdata/borrodepth.png")
+	reader, err = os.Open(opts.DepthMapFile)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -47,14 +63,14 @@ func main() {
 		log.Fatal(err)
 	}
 
-	configWallEyed := imagic.Config{60, 100, false}
-	configCrossEyed := imagic.Config{100, 160, true}
+	var config imagic.Config
+	if opts.CrossEyed {
+		config = imagic.Config{100, 160, true}
+	} else {
+		config = imagic.Config{60, 100, false}
+	}
 
-	wall := imagic.Imagic(dm, bg, configWallEyed)
-	writer, err := os.Create("testdata/wallOutput.png")
-	png.Encode(writer, wall)
-
-	cross := imagic.Imagic(dm, bg, configCrossEyed)
-	writer, err = os.Create("testdata/crossOutput.png")
-	png.Encode(writer, cross)
+	outputImage := imagic.Imagic(dm, bg, config)
+	writer, err := os.Create(opts.OutputFile)
+	png.Encode(writer, outputImage)
 }
