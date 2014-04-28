@@ -23,6 +23,7 @@ import (
 type Config struct {
 	SeparationMin, SeparationMax int
 	CrossEyed                    bool
+	InvertDepth                  bool
 }
 
 /**
@@ -114,6 +115,9 @@ func depthAt(dm image.Image, x, y int) uint32 {
 	rgb = rgb / 3                     // [0, 0xFFFF]
 	rgba := rgb * a / 0xFFFF          // [0, 0xFFFF]
 	depth := rgba * depthMax / 0xFFFF // [0, depthMax]
+	if config.InvertDepth {
+		return depthMax - depth
+	}
 	return depth
 }
 

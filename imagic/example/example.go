@@ -65,9 +65,9 @@ func main() {
 
 	var config imagic.Config
 	if opts.CrossEyed {
-		config = imagic.Config{100, 160, true}
+		config = imagic.Config{separationMin: 100, separationMax: 160, CrossEyed: true, InvertDepth: true}
 	} else {
-		config = imagic.Config{60, 100, false}
+		config = imagic.Config{separationMin: 60, separationMax: 100, CrossEyed: false, InvertDepth: true}
 	}
 
 	outputImage := imagic.Imagic(dm, bg, config)
