@@ -30,6 +30,7 @@ var opts struct {
 	DepthMapFile   string `short:"d" long:"depth" default:"borrodepth.png" description:"depth:depth map image"`
 	BackgroundFile string `short:"b" long:"background" default:"Chefchaouen.jpg" description:"depth:background image texture"`
 	CrossEyed      bool   `short:"c" long:"crosseyed" default:"false" description:"crosseyed:create image designed for cross-eyed viewing"`
+	InvertDepth    bool   `short:"i" long:"invertdepth" default:"false" description:"invertdepth:invert depth map"`
 	OutputFile     string `short:"o" long:"output" default:"output.png" description:"output:output file name"`
 }
 
