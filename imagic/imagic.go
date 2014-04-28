@@ -52,7 +52,7 @@ func magicInflateRow(dm, bg image.Image, config Config, y int) imageRow {
 
 	// Find desired index of pixel to the left.
 	for x := 0; x < len(sourceIndexes); x++ {
-		depth := depthAt(dm, x, y)
+		depth := depthAt(dm, x, y, config)
 		offset := sourceOffset(depth, config)
 		sourceIndexes[x] = x - int(offset)
 	}
@@ -108,7 +108,7 @@ func boundsHeight(bounds image.Rectangle) int {
 
 var depthMax = uint32(3000)
 
-func depthAt(dm image.Image, x, y int) uint32 {
+func depthAt(dm image.Image, x, y int, config Config) uint32 {
 	color := dm.At(x, y)
 	r, g, b, a := color.RGBA()
 	rgb := (r + g + b)                // [0, 3 * 0xFFFF]
