@@ -65,11 +65,8 @@ func main() {
 	}
 
 	var config imagic.Config
-	if opts.CrossEyed {
-		config = imagic.Config{separationMin: 100, separationMax: 160, CrossEyed: true, InvertDepth: true}
-	} else {
-		config = imagic.Config{separationMin: 60, separationMax: 100, CrossEyed: false, InvertDepth: true}
-	}
+	width := dm.Bounds().Max.X - dm.Bounds().Min.X
+	config = imagic.Config{width / 14, width / 10, opts.CrossEyed, opts.InvertDepth}
 
 	outputImage := imagic.Imagic(dm, bg, config)
 	writer, err := os.Create(opts.OutputFile)
