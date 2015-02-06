@@ -20,6 +20,7 @@ import (
 	"appengine/datastore"
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/mjibson/appstats"
 )
@@ -32,6 +33,7 @@ type listing struct {
 
 func init() {
 	http.Handle("/", appstats.NewHandler(register))
+	http.Handle("/clean", appstats.NewHandler(clean))
 }
 
 func register(c appengine.Context, w http.ResponseWriter, r *http.Request) {
@@ -72,7 +74,7 @@ func getDirectory(c appengine.Context, w http.ResponseWriter, r *http.Request) {
 }
 
 func putListing(c appengine.Context, w http.ResponseWriter, r *http.Request) {
-	newListing := new(listing)
+	newListing := listing{}
 	requestData := make([]byte, 100)
 	n, err := r.Body.Read(requestData)
 	if err != nil {
@@ -82,7 +84,18 @@ func putListing(c appengine.Context, w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		c.Errorf("addListing Unmarshal %v", err)
+		return
 	}
+
+	now := time.Now()
+	newListing.Expiration = now.Add(time.Minute).Unix()
+
+	key, err := datastore.Put(c, datastore.NewIncompleteKey(c, "listing", nil), &newListing)
+	if err != nil {
+		c.Errorf("addListing datastore.Put %v", err)
+	}
+	c.Infof("addListing key %v", key)
+
 	b, err := json.Marshal(newListing)
 	if err != nil {
 		c.Errorf("addListing Marshal %v", err)
@@ -90,5 +103,46 @@ func putListing(c appengine.Context, w http.ResponseWriter, r *http.Request) {
 	_, err = w.Write(b)
 	if err != nil {
 		c.Errorf("addListing Write %v", err)
+	}
+}
+
+func clean(c appengine.Context, w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	switch r.Method {
+	case "DELETE":
+		deleteOldListings(c, w, r)
+		return
+	default:
+		c.Errorf("Method %v not expected.", r.Method)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write(nil)
+	}
+}
+
+func deleteOldListings(c appengine.Context, w http.ResponseWriter, r *http.Request) {
+	q := datastore.NewQuery("listing")
+	var listings []listing
+	keys, err := q.GetAll(c, &listings)
+	if err != nil {
+		c.Errorf("getDirectory GetAll query failed %v", err)
+	}
+
+	for index, element := range listings {
+		if time.Now().Unix() > element.Expiration {
+			key := keys[index]
+			datastore.Delete(c, key)
+		}
+	}
+
+	b, err := json.Marshal(listings)
+	if err != nil {
+		c.Errorf("getDirectory Marshal failed %v", err)
+	}
+	_, err = w.Write(b)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+		c.Errorf("getDirectory %v", err)
 	}
 }
