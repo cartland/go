@@ -55,11 +55,9 @@ func register(c appengine.Context, w http.ResponseWriter, r *http.Request) {
 func getDirectory(c appengine.Context, w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	q := datastore.NewQuery("listing")
-	var listings []listing
-	_, err := q.GetAll(c, &listings)
+	listings, err := getAllListings(c)
 	if err != nil {
-		c.Errorf("getDirectory GetAll query failed %v", err)
+		c.Errorf("listings GetAll query failed %v", err)
 	}
 	b, err := json.Marshal(listings)
 	if err != nil {
@@ -71,6 +69,13 @@ func getDirectory(c appengine.Context, w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(err.Error()))
 		c.Errorf("getDirectory %v", err)
 	}
+}
+
+func getAllListings(c appengine.Context) ([]listing, error) {
+	q := datastore.NewQuery("listing")
+	var listings []listing
+	_, err := q.GetAll(c, &listings)
+	return listings, err
 }
 
 func putListing(c appengine.Context, w http.ResponseWriter, r *http.Request) {
