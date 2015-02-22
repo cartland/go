@@ -8,7 +8,11 @@ curl -H "Content-Type: application/json" -d '{"name":"directory","location":"htt
 echo
 
 echo "PUT"
-curl -H "Content-Type: application/json" -d '{"name":"directory","location":"http://localhost:8080"}' http://localhost:8888 -f -X PUT 
+curl -H "Content-Type: application/json" -d '{"name":"directory","location":"http://localhost:8080/reliable"}' http://localhost:8888 -f -X PUT 
+echo
+
+echo "PUT"
+curl -H "Content-Type: application/json" -d '{"name":"directory","location":"http://localhost:8080/flaky"}' http://localhost:8888 -f -X PUT 
 echo
 
 echo "PUT"
