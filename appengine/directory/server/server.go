@@ -30,11 +30,10 @@ type listing struct {
 	Name       string `json:"name"`       // Resource name
 	Location   string `json:"location"`   // URL
 	Expiration int64  `json:"expiration"` // UNIX time in seconds
-	Trash      bool   `json:"trash"`      // Trash marked for deletion
 }
 
 func init() {
-	// curl -H "Content-Type: application/json" -d '{"name":"xyz","location":"http://localhost:8080"}' http://localhost:8888 -f -X PUT
+	// curl -H "Content-Type: application/json" -d '{"name":"directory","location":"http://localhost:8888"}' http://localhost:8888 -f -X PUT
 	http.Handle("/", appstats.NewHandler(register))
 	// curl -H "Content-Type: application/json" http://localhost:8888/clean -f -X DELETE
 	http.Handle("/clean", appstats.NewHandler(clean))
@@ -104,6 +103,12 @@ func putListing(c appengine.Context, w http.ResponseWriter, r *http.Request) {
 	}
 	c.Infof("addListing key %v", key)
 
+	// Retrieve the recently stored listing.
+	err = datastore.Get(c, key, &newListing)
+	if err != nil {
+		c.Errorf("Could not get recently updated listing %v", err)
+	}
+
 	b, err := json.Marshal(newListing)
 	if err != nil {
 		c.Errorf("addListing Marshal %v", err)
@@ -118,7 +123,8 @@ func updateListing(c appengine.Context, newListing listing) (*datastore.Key, err
 	now := time.Now()
 	newListing.Expiration = now.Add(time.Minute).Unix()
 
-	key := datastore.NewKey(c, "listing", newListing.Name, 0, nil)
+	stringId := "name" + newListing.Name + "location" + newListing.Location
+	key := datastore.NewKey(c, "listing", stringId, 0, nil)
 	key, err := datastore.Put(c, key, &newListing)
 	return key, err
 }
@@ -148,21 +154,10 @@ func deleteOldListings(c appengine.Context, w http.ResponseWriter, r *http.Reque
 	for index, element := range listings {
 		if time.Now().Unix() > element.Expiration {
 			key := keys[index]
-			element.Trash = true
 			datastore.Delete(c, key)
 		}
 	}
-
-	b, err := json.Marshal(listings)
-	if err != nil {
-		c.Errorf("getDirectory Marshal failed %v", err)
-	}
-	_, err = w.Write(b)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(err.Error()))
-		c.Errorf("getDirectory %v", err)
-	}
+	getDirectory(c, w, r)
 }
 
 func heartbeat(c appengine.Context, w http.ResponseWriter, r *http.Request) {
@@ -190,21 +185,10 @@ func heartbeatListings(c appengine.Context, w http.ResponseWriter, r *http.Reque
 	for index, element := range listings {
 		if !checkHeartbeat(c, element) {
 			key := keys[index]
-			listings[index].Trash = true
 			datastore.Delete(c, key)
 		}
 	}
-
-	b, err := json.Marshal(listings)
-	if err != nil {
-		c.Errorf("getDirectory Marshal failed %v", err)
-	}
-	_, err = w.Write(b)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(err.Error()))
-		c.Errorf("getDirectory %v", err)
-	}
+	getDirectory(c, w, r)
 }
 
 func checkHeartbeat(c appengine.Context, element listing) bool {
