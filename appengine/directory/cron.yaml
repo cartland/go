@@ -1,0 +1,4 @@
+cron:
+- description: heartbeat job
+  url: /heartbeat
+  schedule: every 1 minutes

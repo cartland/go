@@ -142,7 +142,7 @@ func heartbeat(c appengine.Context, w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	switch r.Method {
-	case "POST":
+	case "GET":
 		checkOldListings(c, w, r)
 		return
 	default:
