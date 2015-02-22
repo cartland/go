@@ -35,8 +35,6 @@ type listing struct {
 func init() {
 	// curl -H "Content-Type: application/json" -d '{"name":"directory","location":"http://localhost:8888"}' http://localhost:8888 -f -X PUT
 	http.Handle("/", appstats.NewHandler(register))
-	// curl -H "Content-Type: application/json" http://localhost:8888/clean -f -X DELETE
-	http.Handle("/clean", appstats.NewHandler(clean))
 	// curl -H "Content-Type: application/json" http://localhost:8888/heartbeat -f -X POST
 	http.Handle("/heartbeat", appstats.NewHandler(heartbeat))
 }
@@ -120,6 +118,13 @@ func putListing(c appengine.Context, w http.ResponseWriter, r *http.Request) {
 }
 
 func updateListing(c appengine.Context, newListing listing) (*datastore.Key, error) {
+	stringId := "name" + newListing.Name + "location" + newListing.Location
+	key := datastore.NewKey(c, "listing", stringId, 0, nil)
+	key, err := datastore.Put(c, key, &newListing)
+	return key, err
+}
+
+func extendListingExpiration(c appengine.Context, newListing listing) (*datastore.Key, error) {
 	now := time.Now()
 	newListing.Expiration = now.Add(time.Minute).Unix()
 
@@ -129,43 +134,12 @@ func updateListing(c appengine.Context, newListing listing) (*datastore.Key, err
 	return key, err
 }
 
-func clean(c appengine.Context, w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
-	switch r.Method {
-	case "DELETE":
-		deleteOldListings(c, w, r)
-		return
-	default:
-		c.Errorf("Method %v not expected.", r.Method)
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write(nil)
-	}
-}
-
-func deleteOldListings(c appengine.Context, w http.ResponseWriter, r *http.Request) {
-	q := datastore.NewQuery("listing")
-	var listings []listing
-	keys, err := q.GetAll(c, &listings)
-	if err != nil {
-		c.Errorf("getDirectory GetAll query failed %v", err)
-	}
-
-	for index, element := range listings {
-		if time.Now().Unix() > element.Expiration {
-			key := keys[index]
-			datastore.Delete(c, key)
-		}
-	}
-	getDirectory(c, w, r)
-}
-
 func heartbeat(c appengine.Context, w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	switch r.Method {
 	case "POST":
-		heartbeatListings(c, w, r)
+		checkOldListings(c, w, r)
 		return
 	default:
 		c.Errorf("Method %v not expected.", r.Method)
@@ -174,7 +148,7 @@ func heartbeat(c appengine.Context, w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func heartbeatListings(c appengine.Context, w http.ResponseWriter, r *http.Request) {
+func checkOldListings(c appengine.Context, w http.ResponseWriter, r *http.Request) {
 	q := datastore.NewQuery("listing")
 	var listings []listing
 	keys, err := q.GetAll(c, &listings)
@@ -183,9 +157,14 @@ func heartbeatListings(c appengine.Context, w http.ResponseWriter, r *http.Reque
 	}
 
 	for index, element := range listings {
-		if !checkHeartbeat(c, element) {
-			key := keys[index]
-			datastore.Delete(c, key)
+		// Only check heartbeat if the listing has expired.
+		if time.Now().Unix() > element.Expiration {
+			if checkHeartbeat(c, element) {
+				_, _ = extendListingExpiration(c, element)
+			} else {
+				key := keys[index]
+				datastore.Delete(c, key)
+			}
 		}
 	}
 	getDirectory(c, w, r)
