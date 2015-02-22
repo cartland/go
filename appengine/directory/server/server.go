@@ -95,7 +95,8 @@ func putListing(c appengine.Context, w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 	newListing.Expiration = now.Add(time.Minute).Unix()
 
-	key, err := datastore.Put(c, datastore.NewIncompleteKey(c, "listing", nil), &newListing)
+	key := datastore.NewKey(c, "listing", newListing.Name, 0, nil)
+	key, err = datastore.Put(c, key, &newListing)
 	if err != nil {
 		c.Errorf("addListing datastore.Put %v", err)
 	}
