@@ -18,6 +18,7 @@ package server
 import (
 	"appengine"
 	"appengine/datastore"
+	"appengine/urlfetch"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -29,11 +30,16 @@ type listing struct {
 	Name       string `json:"name"`       // Resource name
 	Location   string `json:"location"`   // URL
 	Expiration int64  `json:"expiration"` // UNIX time in seconds
+	Trash      bool   `json:"trash"`      // Trash marked for deletion
 }
 
 func init() {
+	// curl -H "Content-Type: application/json" -d '{"name":"xyz","location":"http://localhost:8080"}' http://localhost:8888 -f -X PUT
 	http.Handle("/", appstats.NewHandler(register))
+	// curl -H "Content-Type: application/json" http://localhost:8888/clean -f -X DELETE
 	http.Handle("/clean", appstats.NewHandler(clean))
+	// curl -H "Content-Type: application/json" http://localhost:8888/heartbeat -f -X POST
+	http.Handle("/heartbeat", appstats.NewHandler(heartbeat))
 }
 
 func register(c appengine.Context, w http.ResponseWriter, r *http.Request) {
@@ -92,13 +98,9 @@ func putListing(c appengine.Context, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	now := time.Now()
-	newListing.Expiration = now.Add(time.Minute).Unix()
-
-	key := datastore.NewKey(c, "listing", newListing.Name, 0, nil)
-	key, err = datastore.Put(c, key, &newListing)
+	key, err := updateListing(c, newListing)
 	if err != nil {
-		c.Errorf("addListing datastore.Put %v", err)
+		c.Errorf("putListing updateListing err %v", err)
 	}
 	c.Infof("addListing key %v", key)
 
@@ -110,6 +112,15 @@ func putListing(c appengine.Context, w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		c.Errorf("addListing Write %v", err)
 	}
+}
+
+func updateListing(c appengine.Context, newListing listing) (*datastore.Key, error) {
+	now := time.Now()
+	newListing.Expiration = now.Add(time.Minute).Unix()
+
+	key := datastore.NewKey(c, "listing", newListing.Name, 0, nil)
+	key, err := datastore.Put(c, key, &newListing)
+	return key, err
 }
 
 func clean(c appengine.Context, w http.ResponseWriter, r *http.Request) {
@@ -137,6 +148,7 @@ func deleteOldListings(c appengine.Context, w http.ResponseWriter, r *http.Reque
 	for index, element := range listings {
 		if time.Now().Unix() > element.Expiration {
 			key := keys[index]
+			element.Trash = true
 			datastore.Delete(c, key)
 		}
 	}
@@ -151,4 +163,55 @@ func deleteOldListings(c appengine.Context, w http.ResponseWriter, r *http.Reque
 		w.Write([]byte(err.Error()))
 		c.Errorf("getDirectory %v", err)
 	}
+}
+
+func heartbeat(c appengine.Context, w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	switch r.Method {
+	case "POST":
+		heartbeatListings(c, w, r)
+		return
+	default:
+		c.Errorf("Method %v not expected.", r.Method)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write(nil)
+	}
+}
+
+func heartbeatListings(c appengine.Context, w http.ResponseWriter, r *http.Request) {
+	q := datastore.NewQuery("listing")
+	var listings []listing
+	keys, err := q.GetAll(c, &listings)
+	if err != nil {
+		c.Errorf("getDirectory GetAll query failed %v", err)
+	}
+
+	for index, element := range listings {
+		if !checkHeartbeat(c, element) {
+			key := keys[index]
+			listings[index].Trash = true
+			datastore.Delete(c, key)
+		}
+	}
+
+	b, err := json.Marshal(listings)
+	if err != nil {
+		c.Errorf("getDirectory Marshal failed %v", err)
+	}
+	_, err = w.Write(b)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+		c.Errorf("getDirectory %v", err)
+	}
+}
+
+func checkHeartbeat(c appengine.Context, element listing) bool {
+	client := urlfetch.Client(c)
+	resp, err := client.Get(element.Location)
+	if err != nil {
+		return false
+	}
+	return resp.StatusCode == http.StatusOK
 }
