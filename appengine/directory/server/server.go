@@ -118,8 +118,7 @@ func putListing(c appengine.Context, w http.ResponseWriter, r *http.Request) {
 }
 
 func updateListing(c appengine.Context, newListing listing) (*datastore.Key, error) {
-	stringId := "name" + newListing.Name + "location" + newListing.Location
-	key := datastore.NewKey(c, "listing", stringId, 0, nil)
+	key := keyFromListing(c, newListing)
 	key, err := datastore.Put(c, key, &newListing)
 	return key, err
 }
@@ -128,10 +127,15 @@ func extendListingExpiration(c appengine.Context, newListing listing) (*datastor
 	now := time.Now()
 	newListing.Expiration = now.Add(time.Minute).Unix()
 
-	stringId := "name" + newListing.Name + "location" + newListing.Location
-	key := datastore.NewKey(c, "listing", stringId, 0, nil)
+	key := keyFromListing(c, newListing)
 	key, err := datastore.Put(c, key, &newListing)
 	return key, err
+}
+
+func keyFromListing(c appengine.Context, newListing listing) *datastore.Key {
+	stringId := "name" + newListing.Name + "location" + newListing.Location
+	key := datastore.NewKey(c, "listing", stringId, 0, nil)
+	return key
 }
 
 func heartbeat(c appengine.Context, w http.ResponseWriter, r *http.Request) {
