@@ -17,6 +17,8 @@ package server
 
 import (
 	"appengine"
+	"appengine/urlfetch"
+	"bytes"
 	"encoding/json"
 	"math/rand"
 	"net/http"
@@ -25,13 +27,33 @@ import (
 	"github.com/mjibson/appstats"
 )
 
+type listing struct {
+	Name       string `json:"name"`       // Resource name
+	Location   string `json:"location"`   // URL
+	Expiration int64  `json:"expiration"` // UNIX time in seconds
+}
+
+var serviceListings []listing
+
 func init() {
+	serviceListings = []listing{
+		listing{
+			Name:     "service",
+			Location: "https://loadbalance-golang.appspot.com/reliable",
+		},
+		listing{
+			Name:     "service",
+			Location: "https://loadbalance-golang.appspot.com/flaky",
+		},
+	}
+
 	http.Handle("/reliable", appstats.NewHandler(reliable))
 	http.Handle("/flaky", appstats.NewHandler(flaky))
+	http.Handle("/register", appstats.NewHandler(register))
 }
 
 func reliable(c appengine.Context, w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/json")
+	w.Header().Set("Content-Type", "application/json")
 	b, err := json.Marshal(nil)
 	if err == nil {
 		_, e := w.Write(b)
@@ -51,6 +73,25 @@ func flaky(c appengine.Context, w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		c.Errorf("Flaky failed")
 	}
+}
+
+func register(c appengine.Context, w http.ResponseWriter, r *http.Request) {
+	client := urlfetch.Client(c)
+	for _, l := range serviceListings {
+		registerListing(c, w, r, client, l)
+	}
+	reliable(c, w, r)
+}
+
+func registerListing(c appengine.Context, w http.ResponseWriter, r *http.Request, client *http.Client, l listing) {
+	b, err := json.Marshal(l)
+	body := bytes.NewReader(b)
+	req, err := http.NewRequest("PUT", "https://directory-golang.appspot.com", body)
+	req.Header.Add("Content-Type", "application/json")
+	if err != nil {
+		c.Errorf("%v", err)
+	}
+	_, err = client.Do(req)
 }
 
 type appError struct {

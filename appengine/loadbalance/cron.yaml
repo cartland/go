@@ -1,0 +1,4 @@
+cron:
+ - description: register job
+   url: /register
+   schedule: every 5 minutes
