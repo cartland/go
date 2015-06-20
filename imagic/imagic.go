@@ -34,6 +34,9 @@ func Imagic(dm, bg image.Image, config Config) image.Image {
 	min := bounds.Min
 	max := bounds.Max
 	result := newMutableImage(dm, bg)
+	if result == nil {
+		return nil
+	}
 
 	for y := min.Y; y < max.Y; y++ {
 		r := magicInflateRow(dm, bg, config, y)
@@ -134,6 +137,13 @@ func sourceOffset(depth uint32, config Config) uint32 {
 }
 
 func newMutableImage(dm, bg image.Image) *mutableImage {
+	if dm == nil {
+		return nil
+	}
+	if bg == nil {
+		return nil
+	}
+
 	cm := bg.ColorModel()
 	bounds := dm.Bounds()
 	var imageRows = make([]imageRow, bounds.Max.Y)
