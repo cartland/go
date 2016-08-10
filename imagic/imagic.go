@@ -13,6 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+// DEPRECATED: Project has moved to https://github.com/cartland/imagic
+//
+// Change package import from old path:
+//   github.com/cartland/go/imagic
+// to new path:
+//   github.com/cartland/imagic
+//
+// DEPRECATED
 package imagic
 
 import (
